@@ -31,7 +31,6 @@ public class LoginController {
      * @return
      */
     @RequestMapping("do_login")
-    @RequiresPermissions(value = "", logical = Logical.AND)
     public JsonResult doLogin(User user) {
         log.debug("---------- username = " + user.getUsername() + ", " + "password = " + user.getPassword() + " ----------");
         loginService.login(user);

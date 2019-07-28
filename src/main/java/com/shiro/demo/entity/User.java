@@ -2,6 +2,7 @@ package com.shiro.demo.entity;
 
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.Date;
 
 /**
@@ -10,7 +11,7 @@ import java.util.Date;
  * @author zhangkuan
  */
 @Data
-public class User {
+public class User implements Serializable {
 
     /**
      * 系统最高管理员ID，拥有Root权限

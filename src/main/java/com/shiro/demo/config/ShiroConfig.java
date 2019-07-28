@@ -1,12 +1,16 @@
 package com.shiro.demo.config;
 
 import com.shiro.demo.controller.LoginController;
+import com.shiro.demo.shiro.RedisSessionDao;
 import com.shiro.demo.shiro.UserAuthorizingRealm;
 import org.apache.shiro.mgt.SecurityManager;
 import org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor;
 import org.apache.shiro.spring.web.ShiroFilterFactoryBean;
 import org.apache.shiro.web.mgt.DefaultWebSecurityManager;
+import org.apache.shiro.web.servlet.SimpleCookie;
+import org.apache.shiro.web.session.mgt.DefaultWebSessionManager;
 import org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -21,22 +25,28 @@ import java.util.Map;
 @Configuration
 public class ShiroConfig {
 
+
+    @Value("${session.redis.expireTime}")
+    private long expireTime;
+
     /**
-     * 权限管理，配置主要是Realm的管理认证
+     * 配置安全管理器，Shiro最核心的组件
      *
      * @param userRealm
      * @return
      */
     @Bean
-    public SecurityManager securityManager(UserAuthorizingRealm userRealm) {
+    public SecurityManager securityManager(UserAuthorizingRealm userRealm, RedisSessionDao redisSessionDao) {
         DefaultWebSecurityManager securityManager = new DefaultWebSecurityManager();
         securityManager.setRealm(userRealm);
+        // 取消Cookie中的RememberMe参数
         securityManager.setRememberMeManager(null);
+        securityManager.setSessionManager(defaultWebSessionManager(redisSessionDao));
         return securityManager;
     }
 
     /**
-     * Filter工厂，设置对应的过滤条件和跳转条件
+     * 配置过滤器工厂，设置对应的过滤条件和跳转条件
      *
      * @param securityManager
      * @return
@@ -80,7 +90,22 @@ public class ShiroConfig {
     }
 
     /**
-     * 加入注解的使用，不加入这个注解不生效
+     * 代理生成器，需要借助SpringAOP来扫描@RequiresRoles和@RequiresPermissions等注解。
+     * 生成代理类实现功能增强，从而实现权限控制。
+     * 需要配合AuthorizationAttributeSourceAdvisor一起使用，否则权限注解无效。
+     *
+     * @return
+     */
+    @Bean
+    public DefaultAdvisorAutoProxyCreator lifecycleBeanPostProcessor() {
+        DefaultAdvisorAutoProxyCreator advisorAutoProxyCreator = new DefaultAdvisorAutoProxyCreator();
+        // 这里需要设置为True，否则 @RequiresPermissions 注解验证不生效
+        advisorAutoProxyCreator.setProxyTargetClass(true);
+        return advisorAutoProxyCreator;
+    }
+
+    /**
+     * 上面配置的DefaultAdvisorAutoProxyCreator相当于一个切面，下面这个类就相当于切点了，两个一起才能实现注解权限控制。
      *
      * @param securityManager
      * @return
@@ -93,17 +118,24 @@ public class ShiroConfig {
     }
 
     /**
-     * 开启Shiro的注解(如@RequiresRoles，@RequiresPermissions)，需借助SpringAOP扫描使用Shiro注解的类，并在必要时进行安全逻辑验证
-     * 配置以下两个bean(DefaultAdvisorAutoProxyCreator(可选)和AuthorizationAttributeSourceAdvisor)即可实现此功能
+     * 配置Shiro的Session管理器
      *
+     * @param redisSessionDao
      * @return
      */
-    @Bean("lifecycleBeanPostProcessor")
-    public DefaultAdvisorAutoProxyCreator lifecycleBeanPostProcessor() {
-        DefaultAdvisorAutoProxyCreator advisorAutoProxyCreator = new DefaultAdvisorAutoProxyCreator();
-        // 这里需要设置为True，否则 @RequiresPermissions 注解验证不生效
-        advisorAutoProxyCreator.setProxyTargetClass(true);
-        return advisorAutoProxyCreator;
+    @Bean
+    public DefaultWebSessionManager defaultWebSessionManager(RedisSessionDao redisSessionDao) {
+        DefaultWebSessionManager sessionManager = new DefaultWebSessionManager();
+        sessionManager.setGlobalSessionTimeout(expireTime * 1000);
+        sessionManager.setDeleteInvalidSessions(true);
+        sessionManager.setSessionDAO(redisSessionDao);
+        sessionManager.setSessionValidationSchedulerEnabled(true);
+        sessionManager.setDeleteInvalidSessions(true);
+        /**
+         * 修改Cookie中的SessionId的key，默认为JSESSIONID，自定义名称
+         */
+        sessionManager.setSessionIdCookie(new SimpleCookie("JSESSIONID"));
+        return sessionManager;
     }
 
 }
