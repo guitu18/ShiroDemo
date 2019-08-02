@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -62,7 +63,7 @@ public class ShiroConfig {
         // 错误页面，认证不通过跳转
         shiroFilterFactoryBean.setUnauthorizedUrl("/error");
         // 配置拦截规则
-        Map<String, String> filterMap = new HashMap<>();
+        Map<String, String> filterMap = new LinkedHashMap<>();
         /**
          * authc：该过滤器下的页面必须验证后才能访问，它是Shiro内置的一个拦截器
          * @see org.apache.shiro.web.filter.authc.FormAuthenticationFilter
@@ -76,6 +77,10 @@ public class ShiroConfig {
         // 登录页面和登录请求路径需要放行
         filterMap.put("/login", "anon");
         filterMap.put("/do_login", "anon");
+        filterMap.put("/dga", "anon");
+        filterMap.put("/hfdh", "anon");
+        filterMap.put("/hfdhfds", "anon");
+        filterMap.put("/gfdaghdfad", "anon");
         /**
          * "/do_logout"是退出方法，通常我们需要在退出时执行一些自定义操作
          * @see LoginController#doLogout()，如：记录日志资源回收等
