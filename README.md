@@ -59,7 +59,7 @@
         // 登录页面，无权限时跳转的路径
         shiroFilterFactoryBean.setLoginUrl("/login");
         // 配置拦截规则
-        Map<String, String> filterMap = new HashMap<>();
+        Map<String, String> filterMap = new LinkedHashMap<>();
         // 首页配置放行
         filterMap.put("/", "anon");
         // 登录页面和登录请求路径需要放行
@@ -157,7 +157,7 @@ public class UserAuthorizingRealm extends AuthorizingRealm {
 Shiro提供了很多内置的过滤器，我们最常用的就是第一个和第二个。如果对其效果不满意，我们还可以自定义过滤器实现权限控制。
 文档地址：http://shiro.apache.org/web.html#default-filters
 
-![](http://tomcat-test.guitu18.com/201907261747_398.png)
+![](https://images.gitee.com/uploads/images/2019/1223/091150_ed454bea_4864361.png)
 
 
 
