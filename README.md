@@ -59,7 +59,7 @@
         // 登录页面，无权限时跳转的路径
         shiroFilterFactoryBean.setLoginUrl("/login");
         // 配置拦截规则
-        Map<String, String> filterMap = new HashMap<>();
+        Map<String, String> filterMap = new LinkedHashMap<>();
         // 首页配置放行
         filterMap.put("/", "anon");
         // 登录页面和登录请求路径需要放行
