@@ -1,11 +1,13 @@
 package com.shiro.demo.config;
 
 import com.shiro.demo.controller.LoginController;
+import com.shiro.demo.shiro.AuthLoginFilter;
 import com.shiro.demo.shiro.RedisSessionDao;
 import com.shiro.demo.shiro.UserAuthorizingRealm;
 import org.apache.shiro.mgt.SecurityManager;
 import org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor;
 import org.apache.shiro.spring.web.ShiroFilterFactoryBean;
+import org.apache.shiro.web.filter.authc.AnonymousFilter;
 import org.apache.shiro.web.mgt.DefaultWebSecurityManager;
 import org.apache.shiro.web.servlet.SimpleCookie;
 import org.apache.shiro.web.session.mgt.DefaultWebSessionManager;
@@ -14,7 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.HashMap;
+import javax.servlet.Filter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -62,8 +64,17 @@ public class ShiroConfig {
         shiroFilterFactoryBean.setSuccessUrl("/info");
         // 错误页面，认证不通过跳转
         shiroFilterFactoryBean.setUnauthorizedUrl("/error");
+
+        // 添加登录过滤器
+        Map<String, Filter> filters = new LinkedHashMap<>();
+        // 这里注释的一行是我这次踩的一个小坑，我一开始按下面这么配置产生了一个我意料之外的问题
+        // filters.put("authLogin", authLoginFilter());
+        // 正确的配置是需要我们自己new出来，不能将这个Filter交给Spring管理
+        filters.put("authLogin", new AuthLoginFilter(500, "未登录或登录超时"));
+        shiroFilterFactoryBean.setFilters(filters);
+
         // 配置拦截规则
-        Map<String, String> filterMap = new LinkedHashMap<>();
+        Map<String, String> filterChainMap = new LinkedHashMap<>();
         /**
          * authc：该过滤器下的页面必须验证后才能访问，它是Shiro内置的一个拦截器
          * @see org.apache.shiro.web.filter.authc.FormAuthenticationFilter
@@ -72,26 +83,30 @@ public class ShiroConfig {
          * authc：所有url都必须认证通过才可以访问；anon：所有url都都可以匿名访问
          */
         // 首页配置放行
-        filterMap.put("/", "anon");
-        filterMap.put("/index", "anon");
+        filterChainMap.put("/", "anon");
+        filterChainMap.put("/index", "anon");
         // 登录页面和登录请求路径需要放行
-        filterMap.put("/login", "anon");
-        filterMap.put("/do_login", "anon");
-        filterMap.put("/dga", "anon");
-        filterMap.put("/hfdh", "anon");
-        filterMap.put("/hfdhfds", "anon");
-        filterMap.put("/gfdaghdfad", "anon");
+        filterChainMap.put("/login", "anon");
+        filterChainMap.put("/do_login", "anon");
         /**
          * "/do_logout"是退出方法，通常我们需要在退出时执行一些自定义操作
          * @see LoginController#doLogout()，如：记录日志资源回收等
-         * 此处如果配置 filterMap.put("/do_logout", "logout");
+         * 此处如果配置 filterChainMap.put("/do_logout", "logout");
          * 那么退出操作将会被Shiro接管，不会走到我们自定义的退出方法
          */
-        //filterMap.put("/do_logout", "logout");
+        //filterChainMap.put("/do_logout", "logout");
         // 未配置的所有路径都需要通过验证，否则跳转到登录页
-        filterMap.put("/**", "authc");
-        shiroFilterFactoryBean.setFilterChainDefinitionMap(filterMap);
+        //filterChainMap.put("/**", "authc");
+        // 使用自定义的登录过滤器
+        filterChainMap.put("/api/login", "authLogin");
+        shiroFilterFactoryBean.setFilterChainDefinitionMap(filterChainMap);
         return shiroFilterFactoryBean;
+    }
+
+    // 不能将这个Filter交给Spring管理
+    @Bean
+    public AuthLoginFilter authLoginFilter() {
+        return new AuthLoginFilter(500, "未登录或登录超时");
     }
 
     /**
