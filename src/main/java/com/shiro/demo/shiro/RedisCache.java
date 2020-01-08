@@ -15,10 +15,9 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Redis缓存支持
- * 注意，集群环境下，不需要配置Redis缓存
- * 该配置仅在单机环境下做Session持久化时用到
- * 另外配置了RedisSessionDao之后也不需要配置这个，这里代码保留仅做学习参考用，建议优先使用RedisSessionDao
+ * 使用Redis做Session缓存支持
+ * 注意，集群环境下，不需要配置RedisCache，请直接使用RedisSessionDao，这里代码保留仅做学习参考和演示使用
+ * 该配置建议在在单机环境下做Session持久化时用，另外配置了RedisSessionDao之后也不需要配置这个，建议优先使用RedisSessionDao
  * Shiro默认将Session保存在内存中的，重启后Session会消失，导致重启后所有用户登录状态丢失
  * 那么这时候就需要将Session持久化了，最好的归宿当然是放在Redis
  *
@@ -29,8 +28,14 @@ public class RedisCache<K, V> implements Cache<K, V> {
 
     private Logger log = Logger.getLogger(this.getClass());
 
-    @Value("${session.redis.expireTime}")
+    /**
+     * Session超时时间（秒）
+     */
     private long expireTime;
+
+    public RedisCache(long expireTime) {
+        this.expireTime = expireTime;
+    }
 
     private final String SHIRO_CACHE_PREFIX = "SHIRO_CACHE:";
 
