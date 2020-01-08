@@ -2,15 +2,13 @@ package com.shiro.demo.config;
 
 import com.shiro.demo.controller.LoginController;
 import com.shiro.demo.shiro.AuthLoginFilter;
+import com.shiro.demo.shiro.MySessionManager;
 import com.shiro.demo.shiro.RedisSessionDao;
 import com.shiro.demo.shiro.UserAuthorizingRealm;
 import org.apache.shiro.mgt.SecurityManager;
 import org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor;
 import org.apache.shiro.spring.web.ShiroFilterFactoryBean;
-import org.apache.shiro.web.filter.authc.AnonymousFilter;
 import org.apache.shiro.web.mgt.DefaultWebSecurityManager;
-import org.apache.shiro.web.servlet.SimpleCookie;
-import org.apache.shiro.web.session.mgt.DefaultWebSessionManager;
 import org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -39,12 +37,13 @@ public class ShiroConfig {
      * @return
      */
     @Bean
-    public SecurityManager securityManager(UserAuthorizingRealm userRealm, RedisSessionDao redisSessionDao) {
+    public SecurityManager securityManager(UserAuthorizingRealm userRealm) {
         DefaultWebSecurityManager securityManager = new DefaultWebSecurityManager();
         securityManager.setRealm(userRealm);
         // 取消Cookie中的RememberMe参数
         securityManager.setRememberMeManager(null);
-        securityManager.setSessionManager(defaultWebSessionManager(redisSessionDao));
+        // 配置自定义Session管理器
+        securityManager.setSessionManager(mySessionManager());
         return securityManager;
     }
 
@@ -68,6 +67,7 @@ public class ShiroConfig {
         // 添加登录过滤器
         Map<String, Filter> filters = new LinkedHashMap<>();
         // 这里注释的一行是我这次踩的一个小坑，我一开始按下面这么配置产生了一个我意料之外的问题
+        // 详细分析见博客：https://www.guitu18.com/post/2020/01/06/64.html
         // filters.put("authLogin", authLoginFilter());
         // 正确的配置是需要我们自己new出来，不能将这个Filter交给Spring管理
         filters.put("authLogin", new AuthLoginFilter(500, "未登录或登录超时"));
@@ -104,17 +104,16 @@ public class ShiroConfig {
     }
 
     // 不能将这个Filter交给Spring管理
-    @Bean
-    public AuthLoginFilter authLoginFilter() {
-        return new AuthLoginFilter(500, "未登录或登录超时");
-    }
+    // 详细分析见博客：https://www.guitu18.com/post/2020/01/06/64.html
+//    @Bean
+//    public AuthLoginFilter authLoginFilter() {
+//        return new AuthLoginFilter(500, "未登录或登录超时");
+//    }
 
     /**
      * 代理生成器，需要借助SpringAOP来扫描@RequiresRoles和@RequiresPermissions等注解。
      * 生成代理类实现功能增强，从而实现权限控制。
      * 需要配合AuthorizationAttributeSourceAdvisor一起使用，否则权限注解无效。
-     *
-     * @return
      */
     @Bean
     public DefaultAdvisorAutoProxyCreator lifecycleBeanPostProcessor() {
@@ -126,9 +125,6 @@ public class ShiroConfig {
 
     /**
      * 上面配置的DefaultAdvisorAutoProxyCreator相当于一个切面，下面这个类就相当于切点了，两个一起才能实现注解权限控制。
-     *
-     * @param securityManager
-     * @return
      */
     @Bean
     public AuthorizationAttributeSourceAdvisor authorizationAttributeSourceAdvisor(SecurityManager securityManager) {
@@ -138,24 +134,20 @@ public class ShiroConfig {
     }
 
     /**
-     * 配置Shiro的Session管理器
-     *
-     * @param redisSessionDao
-     * @return
+     * 自定义Session管理器
      */
     @Bean
-    public DefaultWebSessionManager defaultWebSessionManager(RedisSessionDao redisSessionDao) {
-        DefaultWebSessionManager sessionManager = new DefaultWebSessionManager();
-        sessionManager.setGlobalSessionTimeout(expireTime * 1000);
-        sessionManager.setDeleteInvalidSessions(true);
-        sessionManager.setSessionDAO(redisSessionDao);
-        sessionManager.setSessionValidationSchedulerEnabled(true);
-        sessionManager.setDeleteInvalidSessions(true);
-        /**
-         * 修改Cookie中的SessionId的key，默认为JSESSIONID，自定义名称
-         */
-        sessionManager.setSessionIdCookie(new SimpleCookie("JSESSIONID"));
-        return sessionManager;
+    public MySessionManager mySessionManager() {
+        MySessionManager mySessionManager = new MySessionManager();
+        // 配置自定义SessionDao
+        mySessionManager.setSessionDAO(redisSessionDao());
+        mySessionManager.setGlobalSessionTimeout(expireTime * 1000);
+        return mySessionManager;
+    }
+
+    @Bean
+    public RedisSessionDao redisSessionDao() {
+        return new RedisSessionDao(expireTime);
     }
 
 }
